@@ -22,8 +22,6 @@ jobs:
       - name: Format check
         run: uv run ruff format --check .
       - name: Test
-        env:
-          MUJOCO_GL: egl
         run: uv run pytest
       - name: Environment doctor
         run: uv run mujoco-lab doctor
