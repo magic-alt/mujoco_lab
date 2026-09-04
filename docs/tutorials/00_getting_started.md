@@ -33,6 +33,35 @@ This command performs exactly one reset and one random step. It exists to separa
 uv run mujoco-lab train configs/humanoid/humanoid_v5_ppo.yaml
 ```
 
+The default runtime device is `auto`, with explicit GPU-first semantics:
+
+```text
+CUDA -> Apple MPS -> CPU
+```
+
+Before SB3 starts, the trainer prints an accelerator report with the resolved device, PyTorch version, CUDA runtime, visible CUDA devices and the CPU fallback reason when no accelerator is visible. The same information is persisted in `runs/<experiment>/metadata.json`.
+
+To diagnose the current environment before training:
+
+```bash
+uv run mujoco-lab doctor
+```
+
+On an NVIDIA machine, the key line is `CUDA available: True`. If it is `False`, verify what the exact `uv` environment sees:
+
+```bash
+uv run python -c "import torch; print('torch=', torch.__version__); print('cuda_available=', torch.cuda.is_available()); print('torch_cuda=', torch.version.cuda); print('devices=', torch.cuda.device_count()); print('device0=', torch.cuda.get_device_name(0) if torch.cuda.is_available() else None)"
+```
+
+`device: auto` falls back to CPU only when CUDA/MPS is unavailable to PyTorch. To require NVIDIA CUDA and fail fast instead of falling back, set:
+
+```yaml
+runtime:
+  device: cuda
+```
+
+This distinction is useful in automated experiments: `auto` is portable, while `cuda` catches a broken CUDA environment immediately.
+
 Outputs land under `runs/humanoid-v5-ppo/`. TensorBoard can inspect learning curves:
 
 ```bash
@@ -70,11 +99,11 @@ When a task actually needs rendered observations or videos, configure EGL/OSMesa
 
 When something fails, diagnose in this order:
 
-1. `doctor` — packages and versions installed?
+1. `doctor` — packages, versions and accelerator visible?
 2. `inspect-env` — model loads, reset and one step work?
 3. `observation_space.contains(obs)` / `action_space.contains(action)` — wrapper contract valid?
 4. zero/random action rollout — stable contacts and sensible ranges?
 5. short training budget — learning loop works?
 6. full training — only after the first five are clean.
 
-This order prevents hours of reward tuning when the real problem is an invalid model, version incompatibility, action scale, wrapper dtype or renderer.
+This order prevents hours of reward tuning when the real problem is an invalid model, version incompatibility, action scale, wrapper dtype, accelerator setup or renderer.
