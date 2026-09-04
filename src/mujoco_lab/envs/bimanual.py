@@ -1,8 +1,16 @@
 from __future__ import annotations
 
 import gymnasium as gym
+import numpy as np
 
 from mujoco_lab.config import ExperimentConfig
+
+
+class _Float32Observation(gym.ObservationWrapper):
+    """Align robosuite's flattened observations with its declared Gym space dtype."""
+
+    def observation(self, observation: np.ndarray) -> np.ndarray:
+        return np.asarray(observation, dtype=self.observation_space.dtype)
 
 
 def make_bimanual_env(config: ExperimentConfig, render_mode: str | None = None) -> gym.Env:
@@ -25,4 +33,4 @@ def make_bimanual_env(config: ExperimentConfig, render_mode: str | None = None) 
     wrapped = GymWrapper(env, flatten_obs=True)
     if wrapped.metadata is None:
         wrapped.metadata = {}
-    return wrapped
+    return _Float32Observation(wrapped)
