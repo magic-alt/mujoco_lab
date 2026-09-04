@@ -6,6 +6,7 @@ import numpy as np
 
 from mujoco_lab.config import ExperimentConfig
 from mujoco_lab.envs import make_env
+from mujoco_lab.runtime import WORKLOAD_SB3_PPO_MLP_NATIVE, resolve_torch_device
 
 
 def evaluate_ppo(
@@ -20,6 +21,10 @@ def evaluate_ppo(
     except ImportError as exc:
         raise RuntimeError("Evaluation requires: uv sync --extra train") from exc
 
+    device, _ = resolve_torch_device(
+        config.runtime.device,
+        workload=WORKLOAD_SB3_PPO_MLP_NATIVE,
+    )
     checkpoint = Path(checkpoint)
     render_mode = "human" if render else None
     vec_env = DummyVecEnv([lambda: make_env(config, render_mode=render_mode)])
@@ -30,7 +35,7 @@ def evaluate_ppo(
         vec_env.training = False
         vec_env.norm_reward = False
 
-    model = PPO.load(checkpoint, env=vec_env)
+    model = PPO.load(checkpoint, env=vec_env, device=device)
     returns: list[float] = []
     try:
         for _ in range(episodes):
