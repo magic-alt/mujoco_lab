@@ -84,8 +84,7 @@ def _foot_contact_geom_ids(model: mujoco.MjModel, body_name: str) -> list[int]:
     return [
         geom_id
         for geom_id in range(model.ngeom)
-        if int(model.geom_bodyid[geom_id]) == body_id
-        and int(model.geom_contype[geom_id]) != 0
+        if int(model.geom_bodyid[geom_id]) == body_id and int(model.geom_contype[geom_id]) != 0
     ]
 
 
@@ -111,13 +110,11 @@ def inspect_g1_model(resolved: ResolvedRobotModel) -> dict[str, Any]:
             f"G1 articulated joint count changed: expected {G1_SPEC.expected_joint_count}, "
             f"found {len(articulated_joint_names)}"
         )
-    if (
-        G1_SPEC.expected_actuator_count is not None
-        and model.nu != G1_SPEC.expected_actuator_count
-    ):
+
+    expected_actuators = G1_SPEC.expected_actuator_count
+    if expected_actuators is not None and model.nu != expected_actuators:
         raise ValueError(
-            "G1 actuator count changed: "
-            f"expected {G1_SPEC.expected_actuator_count}, found {model.nu}"
+            f"G1 actuator count changed: expected {expected_actuators}, found {model.nu}"
         )
 
     missing_controlled = sorted(
