@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from importlib import metadata
 from pathlib import Path
+from typing import Annotated
 
 import numpy as np
 import typer
@@ -73,11 +74,11 @@ def inspect_env(config: Path) -> None:
 
 @app.command("inspect-robot")
 def inspect_robot(
-    robot: str = typer.Argument("g1", help="Robot model to inspect; currently: g1"),
-    cache_root: Path | None = typer.Option(None, "--cache-root"),
-    offline: bool = typer.Option(False, "--offline"),
-    force: bool = typer.Option(False, "--force"),
-    output: Path | None = typer.Option(None, "--output", "-o"),
+    robot: Annotated[str, typer.Argument(help="Robot model to inspect; currently: g1")] = "g1",
+    cache_root: Annotated[Path | None, typer.Option("--cache-root")] = None,
+    offline: Annotated[bool, typer.Option("--offline")] = False,
+    force: Annotated[bool, typer.Option("--force")] = False,
+    output: Annotated[Path | None, typer.Option("--output", "-o")] = None,
 ) -> None:
     """Resolve, compile and validate a pinned external robot model."""
     from mujoco_lab.robots.g1 import G1_SPEC, inspect_g1_model, inspection_json_path
