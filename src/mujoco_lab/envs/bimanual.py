@@ -12,8 +12,7 @@ def make_bimanual_env(config: ExperimentConfig, render_mode: str | None = None) 
         from robosuite.wrappers import GymWrapper
     except ImportError as exc:
         raise RuntimeError(
-            "Bimanual tasks require the optional dependency: "
-            "uv sync --extra train --extra bimanual"
+            "Bimanual tasks require the optional dependency: uv sync --extra train --extra bimanual"
         ) from exc
 
     kwargs = dict(config.task.kwargs)
