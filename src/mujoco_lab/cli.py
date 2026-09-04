@@ -14,8 +14,8 @@ app = typer.Typer(no_args_is_help=True, help="MuJoCo humanoid and bimanual learn
 
 @app.command()
 def doctor() -> None:
-    """Print the local runtime and dependency status."""
-    packages = ["mujoco", "gymnasium", "numpy", "stable-baselines3", "robosuite"]
+    """Print the local runtime, dependency and accelerator status."""
+    packages = ["mujoco", "gymnasium", "numpy", "stable-baselines3", "torch", "robosuite"]
     typer.echo("mujoco_lab dependency report")
     for package in packages:
         try:
@@ -23,6 +23,30 @@ def doctor() -> None:
         except metadata.PackageNotFoundError:
             version = "not installed (may be optional)"
         typer.echo(f"- {package}: {version}")
+
+    try:
+        from mujoco_lab.training.sb3 import resolve_torch_device
+
+        _, accelerator = resolve_torch_device("auto")
+    except RuntimeError as exc:
+        typer.echo(f"accelerator: unavailable ({exc})")
+        return
+
+    typer.echo("mujoco_lab accelerator report")
+    typer.echo(f"- resolved default: {accelerator['resolved']}")
+    typer.echo(f"- CUDA available: {accelerator['cuda_available']}")
+    typer.echo(f"- PyTorch CUDA runtime: {accelerator['torch_cuda_version']}")
+    typer.echo(f"- CUDA device count: {accelerator['cuda_device_count']}")
+    for device in accelerator["cuda_devices"]:
+        gib = float(device["total_memory_bytes"]) / (1024**3)
+        capability = ".".join(str(value) for value in device["compute_capability"])
+        typer.echo(
+            f"- cuda:{device['index']}: {device['name']} "
+            f"({gib:.1f} GiB, compute capability {capability})"
+        )
+    typer.echo(f"- MPS available: {accelerator['mps_available']}")
+    if accelerator["resolved"] == "cpu":
+        typer.echo("- fallback reason: this PyTorch environment exposes no CUDA or MPS GPU")
 
 
 @app.command("inspect-env")
