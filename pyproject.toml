@@ -25,6 +25,7 @@ train = [
 ]
 bimanual = [
   "h5py>=3.11",
+  "mujoco>=3.3,<3.10",
   "robosuite>=1.5.1",
 ]
 dev = [
