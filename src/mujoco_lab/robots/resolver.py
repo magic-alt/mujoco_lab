@@ -67,7 +67,10 @@ def _copy_response(response: BinaryIO, destination: Path) -> None:
 
 
 def _download(url: str, destination: Path) -> None:
-    request = urllib.request.Request(url, headers={"User-Agent": "mujoco-lab/robot-model-resolver"})
+    request = urllib.request.Request(
+        url,
+        headers={"User-Agent": "mujoco-lab/robot-model-resolver"},
+    )
     try:
         with urllib.request.urlopen(request, timeout=45) as response:  # noqa: S310
             _copy_response(response, destination)
@@ -131,7 +134,8 @@ def _discover_meshes(model_path: Path) -> list[str]:
         raise AssetResolutionError(f"invalid upstream MJCF: {model_path}") from exc
 
     compiler = root.find("compiler")
-    meshdir = _safe_relative(compiler.get("meshdir", "assets") if compiler is not None else "assets")
+    meshdir_value = compiler.get("meshdir", "assets") if compiler is not None else "assets"
+    meshdir = _safe_relative(meshdir_value)
     meshes: list[str] = []
     for mesh in root.findall("./asset/mesh"):
         file_name = mesh.get("file")
