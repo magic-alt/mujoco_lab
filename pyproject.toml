@@ -24,6 +24,7 @@ train = [
   "tensorboard>=2.18",
 ]
 bimanual = [
+  "h5py>=3.11",
   "robosuite>=1.5.1",
 ]
 dev = [
