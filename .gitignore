@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+
+# Experiment outputs
+runs/
+logs/
+checkpoints/
+wandb/
+*.zip
+*.pt
+*.pth
+*.onnx
+*.h5
+*.hdf5
+
+# External robot assets / datasets
+assets/vendor/
+datasets/
+mujoco_menagerie/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mujoco-lab"
+version = "0.1.0"
+description = "Documentation-first MuJoCo lab for humanoid locomotion and bimanual robot learning"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+license = "Apache-2.0"
+authors = [{ name = "mujoco_lab contributors" }]
+dependencies = [
+  "gymnasium[mujoco]>=1.1",
+  "mujoco>=3.3",
+  "numpy>=2.0",
+  "pyyaml>=6.0",
+  "typer>=0.15",
+]
+
+[project.optional-dependencies]
+train = [
+  "stable-baselines3>=2.6",
+  "tensorboard>=2.18",
+]
+bimanual = [
+  "h5py>=3.11",
+  "mujoco>=3.3,<3.10",
+  "robosuite>=1.5.1",
+]
+dev = [
+  "pytest>=8.3",
+  "pytest-cov>=6.0",
+  "ruff>=0.11",
+]
+
+[project.scripts]
+mujoco-lab = "mujoco_lab.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+  "bimanual: requires the optional robosuite dependency",
+]
