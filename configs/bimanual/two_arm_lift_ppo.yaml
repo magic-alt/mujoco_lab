@@ -31,3 +31,5 @@ runtime:
   normalize_reward: true
   checkpoint_freq: 100000
   output_dir: runs/two-arm-lift-ppo
+  device: auto
+  vec_env_backend: auto

@@ -28,4 +28,5 @@ runtime:
   normalize_reward: true
   checkpoint_freq: 100000
   output_dir: runs/humanoid-v5-ppo
-  device: auto  # CUDA -> MPS -> CPU
+  device: auto  # workload-aware: CPU for native MuJoCo + SB3 PPO/MlpPolicy
+  vec_env_backend: auto  # conservative DummyVecEnv until this machine is benchmarked

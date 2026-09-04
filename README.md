@@ -2,7 +2,7 @@
 
 A documentation-first MuJoCo robotics learning lab for **humanoid locomotion** and **bimanual manipulation**.
 
-The repository is intentionally built as a small research platform rather than a collection of one-off scripts: environments expose Gymnasium-compatible interfaces, algorithms live behind training adapters, robot assets are external/versioned, and every experiment is driven by a checked-in configuration.
+The repository is intentionally built as a small research platform rather than a collection of one-off scripts: environments expose Gymnasium-compatible interfaces, algorithms live behind training adapters, robot assets are external/versioned, runtime scheduling is explicit, and every experiment is driven by a checked-in configuration.
 
 ## Learning tracks
 
@@ -10,7 +10,7 @@ The repository is intentionally built as a small research platform rather than a
 | --- | --- | --- |
 | Humanoid locomotion | Gymnasium `Humanoid-v5` + PPO | Unitree G1/H1 command-conditioned walking with Menagerie assets, curriculum and domain randomization |
 | Bimanual manipulation | robosuite `TwoArmLift` + PPO | Handover / peg-in-hole, demonstrations, ALOHA-style ACT and Diffusion Policy |
-| Acceleration | CPU/GPU SB3 | MJX/JAX batched simulation and high-throughput training |
+| Acceleration | native MuJoCo + measured Dummy/Subproc VecEnv | early G1 MJX throughput prototype at 512/1024/2048+ envs, then semantic-parity accelerator backend |
 | Deployment | deterministic evaluation | policy export, sim-to-sim and sim-to-real interfaces |
 
 ## Why this stack
@@ -20,7 +20,7 @@ The repository is intentionally built as a small research platform rather than a
 - **Stable-Baselines3 PPO** is the first baseline because it is readable, mature and supports continuous actions and vectorized environments.
 - **robosuite** supplies well-designed two-arm MuJoCo tasks and an official Gym-compatible wrapper.
 - **MuJoCo Menagerie** supplies curated robot models such as Unitree G1 and H1 without vendoring large third-party assets into this repository.
-- **MJX** is a planned second backend for accelerator-parallel locomotion once the CPU baseline and task semantics are proven.
+- **MJX** is the accelerator path for large batched physics, not a reason to push every small native-MuJoCo MLP workload onto CUDA.
 
 ## Quick start
 
@@ -35,6 +35,20 @@ uv run mujoco-lab doctor
 uv run mujoco-lab inspect-env configs/humanoid/humanoid_v5_ppo.yaml
 uv run mujoco-lab train configs/humanoid/humanoid_v5_ppo.yaml
 ```
+
+For the current native MuJoCo + SB3 PPO + `MlpPolicy` workload, `runtime.device: auto` is **workload-aware and CPU-preferred** even when CUDA is available. `doctor` still reports all visible accelerators. Set `device: cuda` only when you intentionally want to override the workload policy.
+
+Vector-environment selection is independent of torch device selection. `runtime.vec_env_backend: auto` keeps the conservative `DummyVecEnv` reference. Benchmark the actual machine before switching to multiprocessing:
+
+```bash
+uv run mujoco-lab benchmark-vec-env \
+  configs/humanoid/humanoid_v5_ppo.yaml \
+  --env-counts 1,2,4,8 \
+  --backends dummy,subproc \
+  --transitions 10000
+```
+
+The report records startup cost and steady-state environment transitions/s. It measures simulator/VecEnv throughput only; it deliberately excludes policy forward/backward compute so CUDA effects do not contaminate the comparison.
 
 Before implementing custom G1 locomotion tasks, resolve and validate the exact external robot model:
 
@@ -68,6 +82,7 @@ Use `--no-render` for headless servers.
 ```mermaid
 flowchart LR
     C[configs/] --> CLI[mujoco-lab CLI]
+    CLI --> RUNTIME[Runtime policy + benchmarks]
     CLI --> R[Robot model resolver/contract]
     CLI --> F[Environment factory]
     R --> G1[Pinned Menagerie G1]
@@ -78,14 +93,17 @@ flowchart LR
     H --> API[Gymnasium Env API]
     B --> API
     G --> API
-    API --> T[Training adapters]
+    API --> V[DummyVecEnv / SubprocVecEnv]
+    V --> T[Training adapters]
+    RUNTIME --> V
+    RUNTIME --> T
     T --> PPO[SB3 PPO]
-    T -. future .-> MJX[MJX/JAX or RSL-RL]
+    T -. accelerator backend .-> MJX[MJX/JAX]
     PPO --> A[runs/: model + config + normalization + metadata]
     MJX --> A
 ```
 
-The dependency rule is strict: **task/environment code must not import the RL algorithm implementation**. Robot-model provenance and validation are also kept below the task layer, so a model-contract failure is not confused with an RL failure.
+The dependency rule is strict: **task/environment code must not import the RL algorithm implementation**. Hardware availability, workload scheduling and simulator parallelism are separate concerns. Robot-model provenance and validation also stay below the task layer, so a model-contract failure is not confused with an RL failure.
 
 ## Repository map
 
@@ -99,11 +117,13 @@ mujoco_lab/
 │   ├── research/            # source-backed landscape notes
 │   └── tutorials/           # progressive learning path
 ├── src/mujoco_lab/
+│   ├── benchmarks/          # runtime/simulator throughput measurements
 │   ├── envs/                # simulator/task adapters
 │   ├── robots/              # external model specs, resolver and contracts
-│   ├── training/            # algorithm adapters
+│   ├── training/            # VecEnv + algorithm adapters
+│   ├── runtime.py           # workload/device/backend selection policy
 │   ├── config.py            # config schema + validation
-│   └── cli.py               # train/evaluate/inspect/doctor
+│   └── cli.py               # train/evaluate/inspect/benchmark/doctor
 ├── tests/                   # fast contract and smoke tests
 ├── AGENTS.md                # repository rules for AI coding agents
 └── .github/workflows/ci.yml
@@ -124,20 +144,18 @@ mujoco_lab/
 
 ## Current scope
 
-The repository has completed the Phase 0/1 research-platform bootstrap and now enters Phase 2 humanoid locomotion. The first Phase 2 slice establishes a machine-checkable Unitree G1 model contract from a pinned Menagerie revision before any custom PD controller or walking reward is introduced.
+Phase 2A is complete: the repository has a pinned, machine-checkable Unitree G1 model contract. The next humanoid vertical slices are deliberately ordered:
 
-The next vertical slices remain deliberately ordered:
-
-1. G1 model provenance/inspection contract;
-2. G1 standing environment + explicit PD actuator semantics;
-3. command-conditioned walking + decomposed rewards;
-4. robustness/domain randomization and export.
+1. **#4** — native MuJoCo G1 standing environment + explicit PD actuator semantics;
+2. **#9** — early MJX/JAX throughput prototype using the standing contract at 512/1024/2048+ environments;
+3. **#5** — command-conditioned walking + decomposed rewards, informed by but not coupled to the accelerator prototype;
+4. **#6** — robustness/domain randomization and export.
 
 The Humanoid-v5 PPO settings remain starting baselines until issue #2 reports multi-seed empirical results. No full-million-step training success is implied by the existence of a runnable config.
 
 ## Research discipline
 
-A training run is not considered evidence because a video looks plausible. Results should report multiple seeds, task success/return statistics, training budget, simulator/model version and evaluation conditions. Do not commit large model assets, datasets or checkpoints; record their provenance and version instead.
+A training run is not considered evidence because a video looks plausible. Results should report multiple seeds, task success/return statistics, training budget, simulator/model version and evaluation conditions. Performance claims must additionally identify the runtime backend, environment count and hardware. Do not commit large model assets, datasets or checkpoints; record their provenance and version instead.
 
 ## License
 

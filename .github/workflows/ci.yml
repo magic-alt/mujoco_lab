@@ -25,6 +25,26 @@ jobs:
         run: uv run pytest
       - name: Environment doctor
         run: uv run mujoco-lab doctor
+      - name: VecEnv benchmark smoke
+        run: |
+          uv run mujoco-lab benchmark-vec-env \
+            configs/humanoid/humanoid_v5_ppo.yaml \
+            --env-counts 2 \
+            --backends dummy,subproc \
+            --transitions 32 \
+            --warmup-steps 1 \
+            --output "$RUNNER_TEMP/vecenv-benchmark.json"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          report = json.loads(
+              (Path(os.environ["RUNNER_TEMP"]) / "vecenv-benchmark.json").read_text()
+          )
+          assert {row["backend"] for row in report["results"]} == {"dummy", "subproc"}
+          assert all(row["transitions_per_second"] > 0 for row in report["results"])
+          PY
       - name: G1 model contract
         run: |
           uv run mujoco-lab inspect-robot g1 \

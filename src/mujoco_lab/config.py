@@ -37,6 +37,7 @@ class RuntimeConfig:
     checkpoint_freq: int = 100_000
     output_dir: str = "runs/default"
     device: str = "auto"
+    vec_env_backend: str = "auto"
 
 
 @dataclass(frozen=True)
@@ -90,6 +91,7 @@ def load_config(path: str | Path) -> ExperimentConfig:
         checkpoint_freq=int(runtime_raw.get("checkpoint_freq", 100_000)),
         output_dir=str(runtime_raw.get("output_dir", f"runs/{raw.get('name', 'default')}")),
         device=str(runtime_raw.get("device", "auto")).lower(),
+        vec_env_backend=str(runtime_raw.get("vec_env_backend", "auto")).lower(),
     )
 
     if not raw.get("name"):
@@ -108,6 +110,10 @@ def load_config(path: str | Path) -> ExperimentConfig:
         raise ValueError("algorithm.n_steps and batch_size must be positive")
     if runtime.device not in {"auto", "cuda", "mps", "cpu"}:
         raise ValueError("runtime.device must be one of: auto, cuda, mps, cpu")
+    if runtime.vec_env_backend not in {"auto", "dummy", "subproc"}:
+        raise ValueError("runtime.vec_env_backend must be one of: auto, dummy, subproc")
+    if runtime.vec_env_backend == "subproc" and runtime.n_envs < 2:
+        raise ValueError("runtime.vec_env_backend='subproc' requires runtime.n_envs >= 2")
 
     return ExperimentConfig(
         name=str(raw["name"]),

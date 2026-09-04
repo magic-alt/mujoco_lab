@@ -96,3 +96,41 @@ The live G1 inspection resolved the pinned upstream files, compiled `scene.xml`,
 ### Boundary for the next phase
 
 Phase 2A does not claim that G1 can stand or walk under a learned policy. Issue #4 starts from this validated source model and adds the task-owned actuator layer, nominal standing state, residual joint targets, explicit PD gains/torque limits, observation contract, standing reward and termination semantics. Issue #5 adds velocity commands and walking rewards only after standing is independently stable and learnable.
+
+## 2026-09-04 — Workload-aware runtime and VecEnv benchmark
+
+### Trigger
+
+A real Windows training run on an RTX 5060 confirmed that the CUDA-enabled PyTorch environment was healthy (`torch 2.14.0+cu130`, CUDA 13.0, compute capability 12.0), but SB3 warned that PPO with `MlpPolicy` can be slower on GPU. Native MuJoCo physics remained CPU-side and the configured four environments were still using SB3's default `DummyVecEnv`, so “CUDA is available” had been incorrectly treated as equivalent to “CUDA is the best default for this workload”.
+
+### Research
+
+Current SB3 documentation was re-checked for `make_vec_env` and vectorized-environment behavior. `make_vec_env` defaults to `DummyVecEnv`, and subprocess vectorization is an explicit alternative whose benefit depends on environment cost and IPC overhead. Current MuJoCo MJX documentation was also re-checked: accelerator throughput comes from batched device-resident physics and is best suited to large batches rather than single-scene simulation. See `docs/research/2026-09-04-runtime-scheduling.md`.
+
+### Decisions
+
+- hardware accelerator visibility and workload scheduling are separate contracts;
+- `doctor` continues to report CUDA/MPS capability even when the current trainer recommendation is CPU;
+- `device: auto` for native MuJoCo + SB3 PPO + `MlpPolicy` is CPU-preferred;
+- explicit `device: cuda|mps|cpu` remains authoritative and fail-fast;
+- `runtime.vec_env_backend` is independent of torch device and supports `auto|dummy|subproc`;
+- VecEnv `auto` keeps `DummyVecEnv` until a machine benchmark justifies changing it;
+- `benchmark-vec-env` measures startup and simulator transitions/s without policy compute;
+- the G1 roadmap is now #4 native standing → #9 early MJX throughput → #5 command-conditioned walking.
+
+### Implemented in issue #13
+
+- workload profiles and selection reasons in `runtime.py`;
+- shared SB3 VecEnv factory;
+- configurable Dummy/Subproc training backend;
+- standalone VecEnv benchmark artifact with platform/package metadata;
+- training metadata records both accelerator and VecEnv decisions;
+- CI smoke target for both vectorization implementations;
+- ADR 0003, architecture/tutorial/roadmap updates;
+- issue #4 explicitly designated as the native CPU semantic reference;
+- issue #9 moved forward to a 512/1024/2048+ G1 standing throughput milestone;
+- issue #5 renamed Phase 2D and made dependent on the early acceleration findings without coupling task semantics to MJX.
+
+### Evidence still required
+
+This section records architecture and implementation intent only. The branch must still pass GitHub Actions, including the real `SubprocVecEnv` benchmark smoke, before the runtime change is considered complete. No claim is made yet about which VecEnv backend is faster on the RTX 5060 workstation; that result must come from the new benchmark command on the target machine.

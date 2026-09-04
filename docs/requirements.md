@@ -153,6 +153,22 @@ Evaluation uses a separate rollout path with deterministic policy inference by d
 
 Adding MJX/JAX, RSL-RL, SAC, ACT or another trainer must not require copying/reimplementing the underlying task definition merely to satisfy a different optimizer API.
 
+### TRN-006 — workload-aware runtime scheduling
+
+Hardware accelerator availability, policy/trainer device selection and simulator vectorization are separate contracts.
+
+Acceptance:
+
+- `doctor` reports visible torch accelerators independently from the current workload recommendation;
+- `runtime.device: auto` may choose CPU even when CUDA is available when the named workload is CPU-preferred;
+- explicit `device: cuda|mps|cpu` overrides the automatic policy and fails fast if an explicitly requested accelerator is unavailable;
+- native SB3 vectorization is configured independently through `runtime.vec_env_backend`;
+- `DummyVecEnv` and `SubprocVecEnv` choices are benchmarkable on the target machine rather than inferred from environment count alone;
+- run metadata records the resolved device/backend and selection reasons;
+- accelerator throughput claims identify backend, batch/environment count and hardware.
+
+The initial workload policy is that native MuJoCo + SB3 PPO + `MlpPolicy` uses CPU when `device: auto`. Large-batch MJX/JAX simulation is a distinct accelerator workload and must not be modeled as merely another torch-device setting.
+
 ## 7. Dependency and platform requirements
 
 ### DEP-001 — optional dependency isolation
@@ -195,11 +211,11 @@ Meaningful failed experiments/integration findings should be recorded when they 
 
 ### QLT-001 — CI
 
-Every PR must pass formatting, linting and fast contract/smoke tests. Full RL training is not required in ordinary CI, but environment construction/reset/step should be tested for supported baseline tracks.
+Every PR must pass formatting, linting and fast contract/smoke tests. Full RL training is not required in ordinary CI, but environment construction/reset/step should be tested for supported baseline tracks. Runtime/backend changes must execute the affected backend at least once in CI when the hosted platform supports it; configuration-only tests are insufficient for multiprocessing boundaries.
 
 ### QLT-002 — documentation co-change
 
-When a change modifies observation/action semantics, reward terms, model provenance, dependency constraints, commands or experiment protocol, the affected documentation must change in the same PR.
+When a change modifies observation/action semantics, reward terms, model provenance, dependency constraints, commands, runtime/backend policy or experiment protocol, the affected documentation must change in the same PR.
 
 ### QLT-003 — no large generated artifacts in Git
 

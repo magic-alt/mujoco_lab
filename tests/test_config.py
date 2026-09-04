@@ -13,6 +13,7 @@ def test_load_humanoid_config() -> None:
     assert config.algorithm.name == "ppo"
     assert config.runtime.n_envs == 4
     assert config.runtime.device == "auto"
+    assert config.runtime.vec_env_backend == "auto"
 
 
 def test_invalid_family_is_rejected(tmp_path: Path) -> None:
@@ -35,4 +36,30 @@ def test_invalid_runtime_device_is_rejected(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="runtime.device"):
+        load_config(path)
+
+
+def test_invalid_vec_env_backend_is_rejected(tmp_path: Path) -> None:
+    path = tmp_path / "bad-vec-env.yaml"
+    path.write_text(
+        "name: bad-vec-env\n"
+        "task:\n  family: humanoid\n  env_id: Humanoid-v5\n"
+        "algorithm: {}\n"
+        "runtime:\n  vec_env_backend: threads\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="runtime.vec_env_backend"):
+        load_config(path)
+
+
+def test_subproc_training_requires_multiple_envs(tmp_path: Path) -> None:
+    path = tmp_path / "bad-subproc.yaml"
+    path.write_text(
+        "name: bad-subproc\n"
+        "task:\n  family: humanoid\n  env_id: Humanoid-v5\n"
+        "algorithm: {}\n"
+        "runtime:\n  n_envs: 1\n  vec_env_backend: subproc\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="requires runtime.n_envs >= 2"):
         load_config(path)
