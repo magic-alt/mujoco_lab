@@ -36,6 +36,7 @@ class RuntimeConfig:
     normalize_reward: bool = True
     checkpoint_freq: int = 100_000
     output_dir: str = "runs/default"
+    device: str = "auto"
 
 
 @dataclass(frozen=True)
@@ -88,6 +89,7 @@ def load_config(path: str | Path) -> ExperimentConfig:
         normalize_reward=bool(runtime_raw.get("normalize_reward", True)),
         checkpoint_freq=int(runtime_raw.get("checkpoint_freq", 100_000)),
         output_dir=str(runtime_raw.get("output_dir", f"runs/{raw.get('name', 'default')}")),
+        device=str(runtime_raw.get("device", "auto")).lower(),
     )
 
     if not raw.get("name"):
@@ -104,6 +106,8 @@ def load_config(path: str | Path) -> ExperimentConfig:
         raise ValueError("runtime.n_envs must be positive")
     if algorithm.n_steps <= 0 or algorithm.batch_size <= 0:
         raise ValueError("algorithm.n_steps and batch_size must be positive")
+    if runtime.device not in {"auto", "cuda", "mps", "cpu"}:
+        raise ValueError("runtime.device must be one of: auto, cuda, mps, cpu")
 
     return ExperimentConfig(
         name=str(raw["name"]),
