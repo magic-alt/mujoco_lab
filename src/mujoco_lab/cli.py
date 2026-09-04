@@ -75,10 +75,7 @@ def doctor() -> None:
             f"({gib:.1f} GiB, compute capability {capability})"
         )
     typer.echo(f"- MPS available: {accelerator['mps_available']}")
-    typer.echo(
-        "- native SB3 PPO/MlpPolicy auto device: "
-        f"{native_training['resolved']}"
-    )
+    typer.echo(f"- native SB3 PPO/MlpPolicy auto device: {native_training['resolved']}")
     typer.echo(f"- workload policy: {native_training['selection_reason']}")
 
 
@@ -184,10 +181,7 @@ def benchmark_vec_env_command(
             f"{result['transitions_per_second']:>13.1f}"
         )
     for skipped in report["skipped"]:
-        typer.echo(
-            f"skipped {skipped['backend']} n_envs={skipped['n_envs']}: "
-            f"{skipped['reason']}"
-        )
+        typer.echo(f"skipped {skipped['backend']} n_envs={skipped['n_envs']}: {skipped['reason']}")
     typer.echo(f"benchmark report: {destination}")
 
 
