@@ -111,9 +111,13 @@ def inspect_g1_model(resolved: ResolvedRobotModel) -> dict[str, Any]:
             f"G1 articulated joint count changed: expected {G1_SPEC.expected_joint_count}, "
             f"found {len(articulated_joint_names)}"
         )
-    if G1_SPEC.expected_actuator_count is not None and model.nu != G1_SPEC.expected_actuator_count:
+    if (
+        G1_SPEC.expected_actuator_count is not None
+        and model.nu != G1_SPEC.expected_actuator_count
+    ):
         raise ValueError(
-            f"G1 actuator count changed: expected {G1_SPEC.expected_actuator_count}, found {model.nu}"
+            "G1 actuator count changed: "
+            f"expected {G1_SPEC.expected_actuator_count}, found {model.nu}"
         )
 
     missing_controlled = sorted(
