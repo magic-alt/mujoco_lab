@@ -1,0 +1,33 @@
+name: two-arm-lift-ppo
+
+task:
+  family: bimanual
+  env_id: TwoArmLift
+  kwargs:
+    robots: [Panda, Panda]
+    env_configuration: parallel
+    reward_shaping: true
+    use_camera_obs: false
+    use_object_obs: true
+    control_freq: 20
+    horizon: 500
+
+algorithm:
+  name: ppo
+  total_timesteps: 1000000
+  seed: 42
+  learning_rate: 0.0003
+  n_steps: 2048
+  batch_size: 256
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.0
+  net_arch: [256, 256]
+
+runtime:
+  n_envs: 1
+  normalize_obs: true
+  normalize_reward: true
+  checkpoint_freq: 100000
+  output_dir: runs/two-arm-lift-ppo
