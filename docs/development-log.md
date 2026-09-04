@@ -47,3 +47,52 @@ The main lesson is architectural: simulator version constraints, rendering, thir
 ### Explicitly not claimed yet
 
 No full training run has been executed by this bootstrap change. The checked-in hyperparameters are starting baselines, not benchmark results. Phase 1 requires empirical multi-seed validation; Phase 2 implements the first Unitree G1 custom locomotion task.
+
+## 2026-09-04 — Phase 2A Unitree G1 model contract
+
+### Goal
+
+Complete issue #3 before introducing a custom standing environment: pin a real Unitree G1 model, make its provenance reproducible, and turn every assumption needed by later locomotion tasks into a machine-checkable contract.
+
+### Branch hygiene
+
+The original G1 development branch was created before the GPU-first training fix was merged. It therefore diverged from `main` and temporarily contained duplicated accelerator work. Before opening the Phase 2A PR, the branch was synchronized to the current `main` and its effective diff was reduced to G1-only changes. The early torque-actuator conversion prototype was also removed from Phase 2A because explicit PD/torque semantics belong to issue #4.
+
+### Implemented
+
+- pinned MuJoCo Menagerie repository revision `e4049d0a3bfd58d2a3081614e6777d4007e3f86a`;
+- machine-readable `RobotModelSpec` including source URL and `BSD-3-Clause` SPDX license metadata;
+- revision-scoped local cache that downloads only G1 MJCF, README, LICENSE and referenced meshes;
+- SHA-256 manifest validation on every cache reuse;
+- explicit offline, force-rebuild, revision-mismatch, missing-file and hash-mismatch behavior;
+- `mujoco-lab inspect-robot g1` with cache/output controls;
+- model contract for 29 articulated joints, 29 actuators, initial 15 leg/waist controlled joints, IMU/foot sites, pelvis/foot bodies, contact geoms and stand keyframe limits;
+- one-step native MuJoCo finite-state smoke validation;
+- JSON inspection artifact with timestep, integrator and actuator force/control metadata;
+- network-independent resolver tests plus a real pinned-Menagerie GitHub Actions integration check.
+
+### CI integration notes
+
+Phase 2A was deliberately validated through the same strict gate rather than accepted from static inspection.
+
+1. **Lint contract** — the first clean-branch run exposed Typer default-call `B008` violations and two line-length violations. New CLI parameters were moved to `Annotated[...]` metadata and the long expressions were structurally shortened; no Ruff rule was disabled.
+2. **Formatter contract** — the next run passed lint but Ruff formatter preferred a different layout for two G1 conditions. The code was rewritten with a local `expected_actuators` value so both the 100-character lint rule and formatter agree.
+3. **CI PyTorch observation** — hosted Linux runners currently resolve Torch 2.14 with CUDA 13 runtime packages even though no GPU is present. A trial of `uv sync --torch-backend=cpu` failed because the installed `uv 0.12.9` did not accept that argument for `sync`, so the experiment was reverted rather than weakening or complicating the G1 PR. CI backend isolation remains a separate infrastructure improvement.
+4. **Full Phase 2A validation** — GitHub Actions run #24 passed install, Ruff lint, Ruff format, all tests, dependency doctor and the live G1 model contract.
+
+The validated environment was Python 3.11 with MuJoCo 3.9.0, Gymnasium 1.3.0, Stable-Baselines3 2.9.0, Torch 2.14.0 and robosuite 1.5.1. Pytest reported **12 passed**; the two remaining warnings are the already-known robosuite/Gymnasium float64-to-float32 Box precision warnings at the wrapper boundary.
+
+The live G1 inspection resolved the pinned upstream files, compiled `scene.xml`, reset to the `stand` keyframe, executed forward dynamics and one MuJoCo step, then reported:
+
+- `nq=36`, `nv=35`;
+- 29 articulated joints and 29 actuators;
+- 15 initial leg/waist controlled joints;
+- four contact-enabled geoms on each foot;
+- stand base height `0.79 m`;
+- timestep `0.002 s`;
+- integrator `mjINT_IMPLICITFAST`;
+- actuator control ranges and joint actuator-force limits available through the MuJoCo 3.9 Python binding.
+
+### Boundary for the next phase
+
+Phase 2A does not claim that G1 can stand or walk under a learned policy. Issue #4 starts from this validated source model and adds the task-owned actuator layer, nominal standing state, residual joint targets, explicit PD gains/torque limits, observation contract, standing reward and termination semantics. Issue #5 adds velocity commands and walking rewards only after standing is independently stable and learnable.
