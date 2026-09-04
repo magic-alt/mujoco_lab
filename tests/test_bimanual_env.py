@@ -6,7 +6,6 @@ import pytest
 from mujoco_lab.config import load_config
 from mujoco_lab.envs import make_env
 
-
 pytest.importorskip("robosuite")
 
 
