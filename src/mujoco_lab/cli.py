@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from importlib import metadata
 from pathlib import Path
 
@@ -68,6 +69,43 @@ def inspect_env(config: Path) -> None:
         )
     finally:
         env.close()
+
+
+@app.command("inspect-robot")
+def inspect_robot(
+    robot: str = typer.Argument("g1", help="Robot model to inspect; currently: g1"),
+    cache_root: Path | None = typer.Option(None, "--cache-root"),
+    offline: bool = typer.Option(False, "--offline"),
+    force: bool = typer.Option(False, "--force"),
+    output: Path | None = typer.Option(None, "--output", "-o"),
+) -> None:
+    """Resolve, compile and validate a pinned external robot model."""
+    from mujoco_lab.robots.g1 import G1_SPEC, inspect_g1_model, inspection_json_path
+    from mujoco_lab.robots.resolver import AssetResolutionError, resolve_robot_model
+
+    if robot.lower() != "g1":
+        raise typer.BadParameter("supported robot models: g1", param_hint="robot")
+
+    try:
+        resolved = resolve_robot_model(
+            G1_SPEC,
+            cache_root=cache_root,
+            offline=offline,
+            force=force,
+        )
+        report = inspect_g1_model(resolved)
+    except (AssetResolutionError, ValueError) as exc:
+        typer.echo(f"robot inspection failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+    serialized = json.dumps(report, indent=2, sort_keys=True) + "\n"
+    cache_report = inspection_json_path(resolved)
+    cache_report.write_text(serialized, encoding="utf-8")
+    if output is not None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(serialized, encoding="utf-8")
+    typer.echo(serialized, nl=False)
+    typer.echo(f"inspection report: {cache_report}", err=True)
 
 
 @app.command()

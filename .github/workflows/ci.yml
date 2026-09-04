@@ -8,7 +8,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -25,3 +25,25 @@ jobs:
         run: uv run pytest
       - name: Environment doctor
         run: uv run mujoco-lab doctor
+      - name: G1 model contract
+        run: |
+          uv run mujoco-lab inspect-robot g1 \
+            --cache-root "$RUNNER_TEMP/mujoco_lab" \
+            --output "$RUNNER_TEMP/g1-inspection.json"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          report = json.loads((Path(os.environ["RUNNER_TEMP"]) / "g1-inspection.json").read_text())
+          assert report["articulated_joint_count"] == 29
+          assert report["actuator_count"] == 29
+          assert len(report["left_foot_contact_geom_ids"]) >= 4
+          assert len(report["right_foot_contact_geom_ids"]) >= 4
+          print(
+              "validated G1",
+              report["revision"],
+              report["integrator"],
+              report["timestep"],
+          )
+          PY
