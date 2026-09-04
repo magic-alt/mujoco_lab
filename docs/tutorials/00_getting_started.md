@@ -2,7 +2,7 @@
 
 ## 1. Install Python and uv
 
-Use Python 3.11 or 3.12. Install `uv`, clone the repository, then create the core training environment:
+Use Python 3.11 or 3.12. Install `uv`, clone the repository, then create the core humanoid training environment:
 
 ```bash
 uv sync --extra train --extra dev
@@ -14,6 +14,10 @@ For two-arm tasks:
 ```bash
 uv sync --extra train --extra bimanual --extra dev
 ```
+
+The `bimanual` extra intentionally constrains MuJoCo to the compatibility window required by robosuite (`>=3.3,<3.10` at the time this tutorial was validated). The core project itself only requires `mujoco>=3.3`, so humanoid/MJX work can move to newer MuJoCo releases independently.
+
+If you actively develop both a newest-MuJoCo/MJX path and robosuite in parallel, prefer separate `uv` environments/worktrees rather than repeatedly upgrading and downgrading one environment. The checked-in extras make the dependency boundary explicit.
 
 ## 2. Validate MuJoCo without training
 
@@ -52,20 +56,25 @@ On a headless server add `--no-render`.
 uv run mujoco-lab inspect-env configs/bimanual/two_arm_lift_ppo.yaml
 ```
 
-robosuite officially targets macOS and Linux most cleanly. Windows support can require platform-specific rendering fixes; for Windows development, WSL2/Ubuntu is the recommended training environment if native rendering becomes a distraction.
+The project adapter normalizes robosuite's flattened observations to the dtype declared by its Gymnasium observation space. This is deliberate: an environment should satisfy its own `observation_space.contains(obs)` contract before it is passed into SB3.
+
+robosuite is most straightforward on Linux/macOS. On Windows, WSL2/Ubuntu is the recommended training environment if native graphics/input dependencies become a distraction.
 
 ## 6. Headless rendering
 
-Training should normally be headless. On Linux servers MuJoCo can use EGL/OSMesa depending on the workload. CI sets `MUJOCO_GL=egl` for tests, although the smoke tests do not request rendered pixels.
+Training and dynamics CI should normally be headless. Do **not** force `MUJOCO_GL=egl` merely to run non-rendering reset/step tests: a machine without an EGL display can then fail during MuJoCo import even though no pixels are requested.
+
+When a task actually needs rendered observations or videos, configure EGL/OSMesa (or the platform renderer) in a dedicated environment/job and test that rendering path explicitly.
 
 ## Debugging order
 
 When something fails, diagnose in this order:
 
-1. `doctor` — packages installed?
+1. `doctor` — packages and versions installed?
 2. `inspect-env` — model loads, reset and one step work?
-3. zero/random action rollout — stable contacts and sensible ranges?
-4. short training budget — learning loop works?
-5. full training — only after the first four are clean.
+3. `observation_space.contains(obs)` / `action_space.contains(action)` — wrapper contract valid?
+4. zero/random action rollout — stable contacts and sensible ranges?
+5. short training budget — learning loop works?
+6. full training — only after the first five are clean.
 
-This order prevents hours of reward tuning when the real problem is an invalid model, action scale or renderer.
+This order prevents hours of reward tuning when the real problem is an invalid model, version incompatibility, action scale, wrapper dtype or renderer.
